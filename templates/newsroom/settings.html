@@ -1,0 +1,64 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section narrow-section">
+    <div class="page-header">
+        <div>
+            <h1>Налаштування</h1>
+            <p>Усі параметри цього розділу зберігаються окремо для вашого акаунта і впливають на моніторинг та генерацію контенту саме у вашому кабінеті.</p>
+        </div>
+    </div>
+
+    <article class="panel-card">
+        <div class="panel-header"><h2>Профіль редактора</h2></div>
+        <form method="post" class="form-stack">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="profile">
+            {{ profile_form.non_field_errors }}
+            {% for field in profile_form %}
+                <div class="form-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Зберегти профіль</button>
+            </div>
+        </form>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header"><h2>Персональні параметри</h2></div>
+        <form method="post" class="form-stack">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="preferences">
+            {{ preferences_form.non_field_errors }}
+            {% for field in preferences_form %}
+                <div class="form-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            <div class="form-actions">
+                <button class="btn btn-primary" type="submit">Зберегти параметри</button>
+            </div>
+        </form>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header"><h2>Стан акаунта</h2></div>
+        <div class="detail-list">
+            <div><span>Логін</span><strong>{{ request.user.username }}</strong></div>
+            <div><span>Дата реєстрації</span><strong>{{ request.user.date_joined|format_datetime }}</strong></div>
+        </div>
+        <div class="form-actions account-status-actions">
+            <a class="btn btn-muted" href="{% url 'newsroom:change_password' %}">Змінити пароль</a>
+        </div>
+    </article>
+</section>
+{% endblock %}

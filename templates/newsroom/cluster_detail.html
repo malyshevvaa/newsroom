@@ -1,0 +1,70 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section">
+    <div class="page-header">
+        <div class="cluster-detail-heading">
+            <a class="back-link" href="{% url 'newsroom:clusters' %}{% if cluster.monitoring_topic %}?topic={{ cluster.monitoring_topic.id }}{% endif %}">← Назад до кластерів</a>
+            <h1>{{ cluster.title }}</h1>
+            <p>
+                {{ cluster.current_article_count }} новин · {{ cluster.last_updated_at|relative_time }}
+                {% if cluster.monitoring_topic %} · тема: {{ cluster.monitoring_topic.topic }}{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <article class="panel-card cluster-description-card">
+        <div class="panel-header">
+            <h2>Опис кластера</h2>
+        </div>
+        <p class="row-description cluster-description-text">{{ cluster.summary|default:"Опис поки що відсутній." }}</p>
+    </article>
+
+    <article class="panel-card">
+        <div class="panel-header">
+            <h2>Новини у кластері</h2>
+        </div>
+        <div class="list-stack">
+            {% for article in cluster.articles.all %}
+                <article class="row-card">
+                    <div class="row-card-main">
+                        <a class="row-title-link cluster-article-title" href="{{ article.url }}" target="_blank" rel="noreferrer">{{ article.title }}</a>
+                        <p class="row-description cluster-article-summary">{{ article.preview_text|truncatechars:220 }}</p>
+                        <div class="row-subtitle cluster-article-meta">
+                            {% if article.source %}{{ article.source.name }}{% else %}Джерело видалено{% endif %} · {{ article.fetched_at|format_datetime }}
+                            {% if article.monitoring_topic %} · {{ article.monitoring_topic.topic }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="row-card-side cluster-detail-actions">
+                        <a class="btn btn-muted" href="{% url 'newsroom:drafts' %}?article={{ article.id }}">
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M15 4l5 5" />
+                                <path d="M14 5l-9 9-1 5 5-1 9-9" />
+                                <path d="M5 4v3M3.5 5.5h3M19 16v3M17.5 17.5h3" />
+                            </svg>
+                            Генерувати
+                        </a>
+                        <form method="post" action="{% url 'newsroom:delete_article' article.id %}" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-muted btn-danger" type="submit">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M3 6h18" />
+                                    <path d="M8 6V4h8v2" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v5" />
+                                    <path d="M14 11v5" />
+                                </svg>
+                                Видалити
+                            </button>
+                        </form>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state">У цьому кластері ще немає новин.</div>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+{% endblock %}

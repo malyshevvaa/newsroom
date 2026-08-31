@@ -1,0 +1,108 @@
+{% load static newsroom_extras %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
+    <title>{{ page_title|default:"NewsRoom" }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        [hidden] {
+            display: none !important;
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'newsroom/css/app.css' %}?v=20260526-delete-modal-actions">
+</head>
+<body>
+    <div class="app-shell {% if hide_app_sidebar %}app-shell-auth{% endif %}">
+        {% if not hide_app_sidebar %}
+            <aside class="sidebar">
+                <div class="brand">
+                    <div class="brand-mark">N</div>
+                    <div>
+                        <div class="brand-title">NewsRoom</div>
+                        <div class="brand-subtitle">Моніторинг і генерація</div>
+                    </div>
+                </div>
+
+                {% if request.user.is_authenticated %}
+                    <nav class="sidebar-nav">
+                        {% for item in nav_items %}
+                            <a
+                                href="{{ item.href }}"
+                                class="nav-link {% if item.is_active %}active{% endif %}"
+                            >
+                                <span class="nav-icon" aria-hidden="true">
+                                    {% if item.icon_paths %}
+                                        <svg class="nav-icon-svg" viewBox="0 0 24 24">
+                                            {% for path in item.icon_paths %}
+                                                <path d="{{ path }}" />
+                                            {% endfor %}
+                                        </svg>
+                                    {% else %}
+                                        {{ item.badge }}
+                                    {% endif %}
+                                </span>
+                                <span>{{ item.label }}</span>
+                            </a>
+                        {% endfor %}
+                    </nav>
+                {% else %}
+                    <nav class="sidebar-nav">
+                        <a class="nav-link {% if request.path == '/login/' %}active{% endif %}" href="{% url 'newsroom:login' %}">
+                            <span class="nav-icon">У</span>
+                            <span>Увійти</span>
+                        </a>
+                        <a class="nav-link {% if request.path == '/register/' %}active{% endif %}" href="{% url 'newsroom:register' %}">
+                            <span class="nav-icon">Р</span>
+                            <span>Реєстрація</span>
+                        </a>
+                    </nav>
+                {% endif %}
+
+                {% if current_user %}
+                    <div class="sidebar-user">
+                        <div class="sidebar-user-header">
+                            <div class="avatar sidebar-user-avatar">{{ current_user_name|initials }}</div>
+                            <div class="sidebar-user-meta">
+                                <div class="sidebar-identity">
+                                    <div class="sidebar-user-name">{{ current_user_name }}</div>
+                                    <div class="sidebar-user-email">{{ request.user.username }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sidebar-actions">
+                            <form method="post" action="{% url 'newsroom:logout' %}">
+                                {% csrf_token %}
+                                <button class="btn btn-muted btn-block" type="submit">Вийти</button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="sidebar-user sidebar-guest">
+                        <div class="sidebar-user-meta">
+                            <div class="sidebar-user-name">Окремий кабінет для кожного редактора</div>
+                            <div class="sidebar-user-email">
+                                Увійдіть у свій акаунт, щоб теми моніторингу, джерела, згенерований контент і налаштування зберігалися окремо.
+                            </div>
+                            <div class="sidebar-actions">
+                                <a class="btn btn-primary btn-block" href="{% url 'newsroom:login' %}">Увійти</a>
+                                <a class="btn btn-muted btn-block" href="{% url 'newsroom:register' %}">Створити акаунт</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </aside>
+        {% endif %}
+
+        <main class="content-area">
+            {% include "newsroom/includes/messages.html" %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

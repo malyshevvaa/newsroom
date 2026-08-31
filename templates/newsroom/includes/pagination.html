@@ -1,0 +1,31 @@
+{% load newsroom_extras %}
+{% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a class="pagination-control" href="{% querystring request page=page_obj.previous_page_number %}" aria-label="Попередня сторінка">←</a>
+        {% else %}
+            <span class="pagination-control disabled" aria-hidden="true">←</span>
+        {% endif %}
+
+        {% pagination_pages page_obj as page_numbers %}
+        <div class="pagination-pages" aria-label="Сторінки">
+            {% for page_number in page_numbers %}
+                {% if page_number %}
+                    {% if page_number == page_obj.number %}
+                        <span class="pagination-page active" aria-current="page">{{ page_number }}</span>
+                    {% else %}
+                        <a class="pagination-page" href="{% querystring request page=page_number %}">{{ page_number }}</a>
+                    {% endif %}
+                {% else %}
+                    <span class="pagination-ellipsis">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+            <a class="pagination-control" href="{% querystring request page=page_obj.next_page_number %}" aria-label="Наступна сторінка">→</a>
+        {% else %}
+            <span class="pagination-control disabled" aria-hidden="true">→</span>
+        {% endif %}
+    </div>
+{% endif %}

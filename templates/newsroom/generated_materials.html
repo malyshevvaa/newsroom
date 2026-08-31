@@ -1,0 +1,273 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section generated-materials-page">
+    <div class="generated-page-header">
+        <div>
+            <h1>Згенеровані матеріали</h1>
+            <p>Усі матеріали, створені на основі зібраних новин.</p>
+        </div>
+        <a class="btn btn-primary generated-new-button" href="{% url 'newsroom:drafts' %}">
+            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14" />
+                <path d="M5 12h14" />
+            </svg>
+            Нова генерація
+        </a>
+    </div>
+
+    <form class="generated-filter-bar" method="get">
+        <select class="form-select" name="template">
+            <option value="">Усі шаблони</option>
+            {% for template in content_templates %}
+                <option value="{{ template.id }}" {% if template_filter == template.id|stringformat:"s" %}selected{% endif %}>{{ template.name }}</option>
+            {% endfor %}
+        </select>
+        <select class="form-select" name="topic">
+            <option value="">Усі теми</option>
+            {% for topic in topic_filters %}
+                <option value="{{ topic.id }}" {% if topic_filter == topic.id|stringformat:"s" %}selected{% endif %}>{{ topic.topic }}</option>
+            {% endfor %}
+        </select>
+        <select class="form-select" name="period">
+            <option value="">Увесь період</option>
+            <option value="today" {% if period_filter == "today" %}selected{% endif %}>Останні 24 години</option>
+            <option value="week" {% if period_filter == "week" %}selected{% endif %}>Останній тиждень</option>
+            <option value="month" {% if period_filter == "month" %}selected{% endif %}>Останній місяць</option>
+        </select>
+        <div class="generated-search-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m21 21-4.3-4.3" />
+                <path d="M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" />
+            </svg>
+            <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Пошук за назвою...">
+        </div>
+        <button class="btn btn-muted generated-filter-submit" type="submit">
+            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+            Застосувати
+        </button>
+    </form>
+
+    <div class="generated-workspace">
+        <article class="generated-list-panel">
+            <div class="generated-list-header">
+                <span>Знайдено {{ total_count }} матеріалів</span>
+                <form method="get" class="generated-sort-form">
+                    <input type="hidden" name="template" value="{{ template_filter }}">
+                    <input type="hidden" name="topic" value="{{ topic_filter }}">
+                    <input type="hidden" name="period" value="{{ period_filter }}">
+                    <input type="hidden" name="q" value="{{ search_query }}">
+                    {% if selected_draft %}<input type="hidden" name="content" value="{{ selected_draft.id }}">{% endif %}
+                    <label for="generated-sort">Сортування:</label>
+                    <select id="generated-sort" class="form-select generated-sort-select" name="sort" onchange="this.form.submit()">
+                        <option value="new" {% if sort_filter == "new" %}selected{% endif %}>Нові спочатку</option>
+                        <option value="old" {% if sort_filter == "old" %}selected{% endif %}>Старі спочатку</option>
+                        <option value="title" {% if sort_filter == "title" %}selected{% endif %}>За назвою</option>
+                    </select>
+                </form>
+            </div>
+
+            <div class="generated-list">
+                {% for draft in page_obj %}
+                    <a class="generated-list-item {% if selected_draft and selected_draft.id == draft.id %}active{% endif %}" href="{% querystring request content=draft.id tab='result' %}">
+                        <span class="generated-list-icon">{{ draft.content_template.name|default:"М"|slice:":1" }}</span>
+                        <span class="generated-list-main">
+                            <strong>{{ draft.title }}</strong>
+                            <span class="generated-list-tags">
+                                {% if draft.content_template %}<span>{{ draft.content_template.name }}</span>{% endif %}
+                                {% if draft.source_article and draft.source_article.monitoring_topic %}<span>{{ draft.source_article.monitoring_topic.topic }}</span>{% endif %}
+                                <span class="generated-list-inline-meta">{{ draft.updated_at|format_datetime }} · {{ draft.word_count }} слів</span>
+                            </span>
+                        </span>
+                    </a>
+                {% empty %}
+                    <div class="empty-state">За цими фільтрами матеріали не знайдено.</div>
+                {% endfor %}
+            </div>
+
+            {% include "newsroom/includes/pagination.html" %}
+        </article>
+
+        <article class="generated-detail-panel">
+            {% if selected_draft %}
+                <div class="generated-detail-header">
+                    <div class="generated-detail-title">
+                        <h2>{{ selected_draft.title }}</h2>
+                        <div class="generated-detail-meta">
+                            {% if selected_draft.content_template %}
+                                <span class="chip">{{ selected_draft.content_template.name }}</span>
+                            {% endif %}
+                            {% if selected_draft.target_length %}
+                                <span class="chip">
+                                    {% if selected_draft.target_length == "short" %}Коротка{% elif selected_draft.target_length == "long" %}Довга{% else %}Середня{% endif %}
+                                </span>
+                            {% endif %}
+                            <span class="chip">{{ selected_draft.word_count }} слів</span>
+                            <span class="generated-detail-date">оновлено {{ selected_draft.updated_at|relative_time }}</span>
+                        </div>
+                    </div>
+                    <div class="generated-detail-actions">
+                        <a class="btn btn-primary generated-action-button" href="{% url 'newsroom:draft_detail' selected_draft.id %}">
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                            Редагувати
+                        </a>
+                        <button class="btn btn-muted generated-action-button generated-secondary-action" type="button" data-copy-generated>
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M8 8h11v13H8z" />
+                                <path d="M5 16H4a1 1 0 0 1-1-1V4h11v1" />
+                            </svg>
+                            Копіювати
+                        </button>
+                        <a class="btn btn-muted generated-action-button generated-secondary-action" href="{% url 'newsroom:export_draft_docx' selected_draft.id %}">
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 3h7l4 4v14H7V3Z" />
+                                <path d="M14 3v5h5" />
+                                <path d="M12 11v6" />
+                                <path d="m9 14 3 3 3-3" />
+                            </svg>
+                            DOCX
+                        </a>
+                        <button
+                            class="btn btn-muted btn-danger generated-action-button generated-action-delete generated-danger-action"
+                            type="button"
+                            aria-label="Видалити"
+                            data-delete-confirm-button
+                            data-delete-url="{% url 'newsroom:delete_draft' selected_draft.id %}"
+                            data-delete-title="Видалити матеріал?"
+                            data-delete-body="Згенерований матеріал «{{ selected_draft.title }}» буде видалено зі списку генерацій."
+                        >
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v5" />
+                                <path d="M14 11v5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="generated-tabs">
+                    <a class="{% if selected_tab == 'result' %}active{% endif %}" href="{% querystring request tab='result' %}">Результат</a>
+                    <a class="{% if selected_tab == 'source' %}active{% endif %}" href="{% querystring request tab='source' %}">Джерело</a>
+                    <a class="{% if selected_tab == 'related' %}active{% endif %}" href="{% querystring request tab='related' %}">Інші варіанти</a>
+                </div>
+
+                {% if selected_tab == "source" %}
+                    {% if selected_draft.source_article %}
+                    <div class="generated-detail-box generated-source-box">
+                            <h3>{{ selected_draft.source_article.title }}</h3>
+                            {% if selected_draft.source_article.preview_text %}<p>{{ selected_draft.source_article.preview_text }}</p>{% endif %}
+                            <div class="generated-source-meta">
+                                <span>{% if selected_draft.source_article.source %}{{ selected_draft.source_article.source.name }}{% else %}Джерело видалено{% endif %}</span>
+                                {% if selected_draft.source_article.published_at %}
+                                    <span>{{ selected_draft.source_article.published_at|format_datetime }}</span>
+                                {% else %}
+                                    <span>{{ selected_draft.source_article.fetched_at|format_datetime }}</span>
+                                {% endif %}
+                                {% if selected_draft.source_article.monitoring_topic %}
+                                    <span>{{ selected_draft.source_article.monitoring_topic.topic }}</span>
+                                {% endif %}
+                            </div>
+                            <a class="btn btn-muted generated-source-link" href="{{ selected_draft.source_article.url }}" target="_blank" rel="noreferrer">
+                                <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M7 17 17 7" />
+                                    <path d="M9 7h8v8" />
+                                </svg>
+                                Відкрити новину
+                            </a>
+                    </div>
+                    {% else %}
+                    <div class="generated-detail-box generated-related-box">
+                        <div class="empty-state">Для цього матеріалу не збережено вихідну новину.</div>
+                    </div>
+                    {% endif %}
+                {% elif selected_tab == "related" %}
+                    <div class="generated-detail-box generated-related-box">
+                        {% for related_draft in related_drafts %}
+                            <a class="generated-list-item generated-version-row" href="{% querystring request content=related_draft.id tab='result' %}">
+                                <span class="generated-list-icon">{{ related_draft.content_template.name|default:"М"|slice:":1" }}</span>
+                                <span class="generated-list-main">
+                                    <strong>{{ related_draft.title }}</strong>
+                                    <span class="generated-list-tags">
+                                        {% if related_draft.content_template %}<span>{{ related_draft.content_template.name }}</span>{% endif %}
+                                        {% if related_draft.source_article and related_draft.source_article.monitoring_topic %}<span>{{ related_draft.source_article.monitoring_topic.topic }}</span>{% endif %}
+                                        <span class="generated-list-inline-meta">{{ related_draft.updated_at|format_datetime }} · {{ related_draft.word_count }} слів</span>
+                                    </span>
+                                </span>
+                            </a>
+                        {% empty %}
+                            <div class="empty-state">Інших варіантів для цієї новини ще немає.</div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="generated-detail-box generated-result-box">
+                        <div class="editor-text generated-result-content is-collapsed" data-generated-result-content>{{ selected_draft.content|linebreaks }}</div>
+                        <button class="btn btn-muted generated-expand-button" type="button" data-generated-expand>Показати більше</button>
+                    </div>
+                {% endif %}
+                {{ selected_draft.content|json_script:"generated-copy-text" }}
+            {% else %}
+                <div class="empty-state">Поки що немає згенерованих матеріалів.</div>
+            {% endif %}
+        </article>
+    </div>
+</section>
+
+{% include "newsroom/includes/delete_confirm_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (() => {
+        const copyButton = document.querySelector("[data-copy-generated]");
+        const copyText = document.getElementById("generated-copy-text");
+        if (!copyButton || !copyText) {
+            return;
+        }
+
+        const originalButtonHtml = copyButton.innerHTML;
+
+        copyButton.addEventListener("click", async () => {
+            try {
+                const text = JSON.parse(copyText.textContent);
+                await navigator.clipboard.writeText(text);
+                copyButton.classList.add("copied");
+                copyButton.textContent = "Скопійовано";
+                setTimeout(() => {
+                    copyButton.classList.remove("copied");
+                    copyButton.innerHTML = originalButtonHtml;
+                }, 1200);
+            } catch (error) {
+                copyButton.textContent = "Не скопійовано";
+            }
+        });
+    })();
+
+    (() => {
+        const content = document.querySelector("[data-generated-result-content]");
+        const button = document.querySelector("[data-generated-expand]");
+        if (!content || !button) {
+            return;
+        }
+
+        const isOverflowing = content.scrollHeight > content.clientHeight + 4;
+        if (!isOverflowing) {
+            content.classList.remove("is-collapsed");
+            button.hidden = true;
+            return;
+        }
+
+        button.addEventListener("click", () => {
+            content.classList.remove("is-collapsed");
+            button.hidden = true;
+        });
+    })();
+</script>
+{% endblock %}

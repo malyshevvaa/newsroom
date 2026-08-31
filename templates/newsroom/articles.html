@@ -1,0 +1,263 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section">
+    <div class="page-header">
+        <div>
+            <h1>Новини</h1>
+            <p>Зібрані новини за темами моніторингу, які очікують кластеризації або вже потрапили до тематичних груп.</p>
+        </div>
+    </div>
+
+    <div class="template-tabs article-scope-tabs" aria-label="Перемикання списку новин">
+        <a class="template-tab {% if current_scope == 'all' %}active{% endif %}" href="{% querystring request scope='' favorite='' page='' %}">
+            Усі новини
+            <span id="article-all-count" data-article-scope-count="all">{{ article_scope_counts.all }}</span>
+        </a>
+        <a class="template-tab {% if current_scope == 'favorites' %}active{% endif %}" href="{% querystring request scope='favorites' favorite='' page='' %}">
+            Обране
+            <span id="article-favorites-count" data-article-scope-count="favorites">{{ article_scope_counts.favorites }}</span>
+        </a>
+    </div>
+
+    <form class="generated-filter-bar articles-filter-bar" method="get">
+        {% if current_scope == "favorites" %}
+            <input type="hidden" name="scope" value="favorites">
+        {% endif %}
+        <select class="form-select" name="topic">
+            <option value="">Усі теми</option>
+            {% for topic in topic_filters %}
+                <option value="{{ topic.id }}" {% if topic_filter == topic.id|stringformat:"s" %}selected{% endif %}>{{ topic.topic }}</option>
+            {% endfor %}
+        </select>
+        <select class="form-select" name="status">
+            {% for item in status_filters %}
+                <option value="{{ item }}" {% if status_filter == item %}selected{% endif %}>
+                    {% if item %}{{ item|status_label }}{% else %}Усі статуси{% endif %}
+                </option>
+            {% endfor %}
+        </select>
+        <select class="form-select" name="sort" aria-label="Сортування новин">
+            <option value="" {% if not sort_filter %}selected{% endif %}>Порядок додавання</option>
+            <option value="newest" {% if sort_filter == "newest" %}selected{% endif %}>Нові за датою</option>
+            <option value="oldest" {% if sort_filter == "oldest" %}selected{% endif %}>Старі за датою</option>
+        </select>
+        <div class="generated-search-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m21 21-4.3-4.3" />
+                <path d="M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" />
+            </svg>
+            <input class="form-control" type="search" name="q" value="{{ search_query }}" placeholder="Пошук новин...">
+        </div>
+        <button class="btn btn-muted generated-filter-submit" type="submit">
+            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 6h16M7 12h10M10 18h4" />
+            </svg>
+            Застосувати
+        </button>
+    </form>
+
+    <div class="list-stack">
+        {% for article in page_obj %}
+            <article class="row-card article-card" data-article-card="{{ article.id }}">
+                <div class="row-card-main">
+                    <a class="row-title-link article-title-link" href="{{ article.url }}" target="_blank" rel="noreferrer">{{ article.title }}</a>
+                    <p class="row-description article-card-summary">{{ article.preview_text|default:"" }}</p>
+                    <div class="row-subtitle article-card-meta">
+                        {% if article.monitoring_topic %}{{ article.monitoring_topic.topic }} · {% endif %}
+                        {% if article.source %}{{ article.source.name }}{% else %}Джерело видалено{% endif %} · {% if article.published_at %}{{ article.published_at|date:"d.m.Y H:i" }}{% else %}{{ article.fetched_at|relative_time }}{% endif %}
+                    </div>
+                    {% if article.relevance_score or article.relevance_reason %}
+                        <div class="article-ai-note">
+                            <span>{{ article.relevance_score }}/100</span>
+                            {% if article.relevance_reason %}<p>{{ article.relevance_reason|capfirst }}</p>{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="row-card-side article-card-side">
+                    <div class="article-card-status-row">
+                        <span class="status-badge {{ article.status|status_class }}">{{ article.status|status_label }}</span>
+                        <form method="post" action="{% url 'newsroom:toggle_article_favorite' article.id %}" class="inline-form article-favorite-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button
+                                class="btn btn-muted article-favorite-button article-favorite-icon-button {% if article.is_favorite %}active{% endif %}"
+                                type="submit"
+                                data-favorite-icon-only="true"
+                                data-is-favorite="{% if article.is_favorite %}1{% else %}0{% endif %}"
+                                aria-label="{% if article.is_favorite %}Прибрати з обраного{% else %}Додати в обране{% endif %}"
+                                title="{% if article.is_favorite %}Прибрати з обраного{% else %}Додати в обране{% endif %}"
+                            >
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 20.5s-7.5-4.5-9.2-8.9C1.6 8.3 3.5 5 6.8 5c1.9 0 3.3 1 4.2 2.2C11.9 6 13.3 5 15.2 5c3.3 0 5.2 3.3 4 6.6C19.5 16 12 20.5 12 20.5Z" />
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                    <div class="article-card-actions">
+                        {% if article.status == "rejected" %}
+                            <form method="post" action="{% url 'newsroom:approve_article_relevance' article.id %}" class="inline-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button class="btn btn-primary" type="submit">
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M5 12l4 4L19 6" />
+                                    </svg>
+                                    Схвалити
+                                </button>
+                            </form>
+                        {% else %}
+                            <a class="btn btn-muted" href="{% url 'newsroom:drafts' %}?article={{ article.id }}">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M15 4l5 5" />
+                                    <path d="M14 5l-9 9-1 5 5-1 9-9" />
+                                    <path d="M5 4v3M3.5 5.5h3M19 16v3M17.5 17.5h3" />
+                                </svg>
+                                Генерувати
+                            </a>
+                        {% endif %}
+                        <form method="post" action="{% url 'newsroom:delete_article' article.id %}" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <button class="btn btn-muted btn-danger" type="submit">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M3 6h18" />
+                                    <path d="M8 6V4h8v2" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v5" />
+                                    <path d="M14 11v5" />
+                                </svg>
+                                Видалити
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </article>
+        {% empty %}
+            <div class="empty-state">За цими фільтрами новини не знайдені.</div>
+        {% endfor %}
+    </div>
+
+    {% include "newsroom/includes/pagination.html" %}
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (() => {
+        function updateButtonText(button, buttonText) {
+            if (button.dataset.favoriteIconOnly === "true") {
+                const label = buttonText === "В обраному" ? "Прибрати з обраного" : "Додати в обране";
+                button.setAttribute("aria-label", label);
+                button.setAttribute("title", label);
+                return;
+            }
+
+            const textNode = Array.from(button.childNodes).find((node) => {
+                return node.nodeType === Node.TEXT_NODE && node.textContent.trim();
+            });
+
+            if (textNode) {
+                textNode.textContent = ` ${buttonText}`;
+                return;
+            }
+
+            button.append(document.createTextNode(` ${buttonText}`));
+        }
+
+        function updateFavoriteState(form, isFavorite, buttonText) {
+            const button = form.querySelector(".article-favorite-button");
+
+            // Оновлюємо лише одну картку, тому користувач залишається на тому самому місці списку.
+            button.classList.toggle("active", isFavorite);
+            button.dataset.isFavorite = isFavorite ? "1" : "0";
+            updateButtonText(button, buttonText);
+        }
+
+        function getArticleScopeCounter(scope) {
+            return (
+                document.getElementById(`article-${scope}-count`)
+                || document.querySelector(`[data-article-scope-count="${scope}"]`)
+            );
+        }
+
+        function updateCounter(counter, value) {
+            if (!counter || value === undefined || value === null) {
+                return false;
+            }
+
+            counter.textContent = String(value);
+            return true;
+        }
+
+        function updateArticleScopeCounts(scopeCounts, favoriteCount) {
+            // Основний варіант: беремо точні лічильники з відповіді сервера.
+            if (scopeCounts) {
+                updateCounter(getArticleScopeCounter("all"), scopeCounts.all);
+                updateCounter(getArticleScopeCounter("favorites"), scopeCounts.favorites);
+                return Boolean(scopeCounts.favorites !== undefined);
+            }
+
+            return updateCounter(getArticleScopeCounter("favorites"), favoriteCount);
+        }
+
+        function updateFavoriteCountByDelta(wasFavorite, isFavorite) {
+            const counter = getArticleScopeCounter("favorites");
+            if (!counter || wasFavorite === isFavorite) {
+                return;
+            }
+
+            const currentCount = Number.parseInt(counter.textContent, 10) || 0;
+            const change = isFavorite ? 1 : -1;
+            counter.textContent = String(Math.max(currentCount + change, 0));
+        }
+
+        document.querySelectorAll(".article-favorite-form").forEach((form) => {
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const button = form.querySelector(".article-favorite-button");
+                const wasFavorite = button.dataset.isFavorite === "1";
+                const formData = new FormData(form);
+                button.disabled = true;
+                button.classList.add("is-loading");
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        body: formData,
+                        credentials: "same-origin",
+                        headers: {
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        form.submit();
+                        return;
+                    }
+
+                    const data = await response.json();
+                    updateFavoriteState(form, data.is_favorite, data.button_text);
+                    const countsWereUpdated = updateArticleScopeCounts(
+                        data.article_scope_counts,
+                        data.favorite_count
+                    );
+
+                    if (!countsWereUpdated) {
+                        updateFavoriteCountByDelta(wasFavorite, data.is_favorite);
+                    }
+                } catch (error) {
+                    form.submit();
+                } finally {
+                    button.disabled = false;
+                    button.classList.remove("is-loading");
+                }
+            });
+        });
+    })();
+</script>
+{% endblock %}

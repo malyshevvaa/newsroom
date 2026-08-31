@@ -1,0 +1,565 @@
+﻿{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section">
+    <div class="page-header">
+        <div>
+            <h1>Теми моніторингу</h1>
+            <p>Створюйте теми моніторингу, задавайте ключові слова, період пошуку та джерела, щоб система знаходила релевантні новини.</p>
+        </div>
+        <a class="btn btn-primary" href="{% querystring request modal='topic' edit='' %}">
+            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+            </svg>
+            Нова тема
+        </a>
+    </div>
+
+    <div class="template-tabs monitoring-status-tabs">
+        <a class="template-tab {% if status_filter == 'active' %}active{% endif %}" href="{% querystring request status='active' page='' %}">
+            Активні
+            <span>{{ topic_counts.active }}</span>
+        </a>
+        <a class="template-tab {% if status_filter == 'archived' %}active{% endif %}" href="{% querystring request status='archived' page='' %}">
+            Архів
+            <span>{{ topic_counts.archived }}</span>
+        </a>
+    </div>
+
+    <form method="get" class="template-toolbar monitoring-toolbar">
+        <input type="hidden" name="status" value="{{ status_filter }}">
+        <div class="template-search-field monitoring-search-field">
+            <label for="topic-search">Пошук тем</label>
+            <input
+                id="topic-search"
+                class="form-control"
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Пошук тем..."
+            >
+        </div>
+    </form>
+
+    <div class="list-stack">
+        {% for topic in topics %}
+            <article class="row-card monitoring-card">
+                <div class="row-card-main monitoring-card-main">
+                    <div class="chip-row monitoring-card-meta">
+                        <span class="status-badge {{ topic.status|status_class }}">{{ topic.status|status_label }}</span>
+                        {% if topic.run_state == "running" and topic.cancel_requested %}
+                            <span class="status-badge badge-amber">Зупиняється</span>
+                        {% elif topic.run_state == "running" %}
+                            <span class="status-badge badge-blue">Виконується</span>
+                        {% elif topic.run_state == "error" %}
+                            <span class="status-badge badge-red">Помилка запуску</span>
+                        {% endif %}
+                        <span class="chip">{{ topic.time_filter_label }}</span>
+                        <span class="chip">{{ topic.current_articles_count }} матеріалів</span>
+                    </div>
+                    <div class="list-title monitoring-card-title">{{ topic.topic }}</div>
+                    <p class="row-description monitoring-card-description">
+                        {% if topic.keywords %}Ключові слова: {{ topic.keywords }}{% else %}Ключові слова ще не задані.{% endif %}
+                    </p>
+                    <div class="row-subtitle monitoring-card-subtitle">
+                        {% if topic.run_state == "running" and topic.cancel_requested %}
+                            Зупинка моніторингу виконується після поточного кроку
+                        {% elif topic.run_state == "running" and topic.run_started_at %}
+                            Моніторинг виконується {{ topic.run_started_at|elapsed_time }}
+                        {% elif topic.last_run_at %}
+                            Останній запуск: {{ topic.last_run_at|relative_time }}
+                        {% else %}
+                            Моніторинг ще не запускався
+                        {% endif %}
+                    </div>
+                    <div class="chip-row monitoring-card-sources">
+                        {% for source in topic.display_sources %}
+                            <span class="chip">{{ source.name }}</span>
+                        {% empty %}
+                            {% if topic.uses_all_active_sources %}
+                            <span class="chip">Усі активні джерела</span>
+                            {% else %}
+                            <span class="chip">Немає активних джерел</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="row-card-side monitoring-card-side">
+                    {% if topic.status == "archived" %}
+                        <a class="btn btn-muted" href="{% url 'newsroom:articles' %}?topic={{ topic.id }}">
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 4h7l4 4v12H7z" />
+                                <path d="M14 4v5h5M9 13h6M9 17h6" />
+                            </svg>
+                            Новини
+                        </a>
+                        <form method="post" action="{% url 'newsroom:restore_monitoring_topic' topic.id %}">
+                            {% csrf_token %}
+                            <button class="btn btn-muted" type="submit">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M4 12a8 8 0 0 1 14-5" />
+                                    <path d="M18 3v4h-4" />
+                                    <path d="M20 12a8 8 0 0 1-14 5" />
+                                    <path d="M6 21v-4h4" />
+                                </svg>
+                                Відновити
+                            </button>
+                        </form>
+                        {% if topic.current_articles_count == 0 %}
+                            <button
+                                class="btn btn-muted btn-danger"
+                                type="button"
+                                data-delete-confirm-button
+                                data-delete-url="{% url 'newsroom:delete_monitoring_topic' topic.id %}"
+                                data-delete-title="Видалити тему моніторингу?"
+                                data-delete-body="Тему моніторингу «{{ topic.topic }}» буде остаточно видалено."
+                            >
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M3 6h18" />
+                                    <path d="M8 6V4h8v2" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v5" />
+                                    <path d="M14 11v5" />
+                                </svg>
+                                Видалити
+                            </button>
+                        {% endif %}
+                    {% else %}
+                        {% if topic.is_running %}
+                            {% if topic.cancel_requested %}
+                                <button class="btn btn-muted disabled" type="button" disabled>
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M8 5h8v14H8z" />
+                                    </svg>
+                                    Зупиняється...
+                                </button>
+                            {% else %}
+                                <form method="post" action="{% url 'newsroom:stop_monitoring' topic.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-muted btn-danger" type="submit">
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M6 6h12v12H6z" />
+                                        </svg>
+                                        Зупинити
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% else %}
+                            {% if topic.has_effective_sources %}
+                                <form method="post" action="{% url 'newsroom:run_monitoring' topic.id %}">
+                                    {% csrf_token %}
+                                    <button class="btn btn-primary" type="submit">
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M8 5v14l11-7Z" />
+                                        </svg>
+                                        Запустити
+                                    </button>
+                                </form>
+                            {% else %}
+                                <button class="btn btn-primary disabled" type="button" disabled>
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M8 5v14l11-7Z" />
+                                    </svg>
+                                    Запустити
+                                </button>
+                            {% endif %}
+                        {% endif %}
+                        <a class="btn btn-muted" href="{% url 'newsroom:articles' %}?topic={{ topic.id }}">
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 4h7l4 4v12H7z" />
+                                <path d="M14 4v5h5M9 13h6M9 17h6" />
+                            </svg>
+                            Новини
+                        </a>
+                        {% if topic.is_running %}
+                            <button class="btn btn-muted disabled" type="button" disabled title="Поки моніторинг виконується, тему не можна редагувати.">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                </svg>
+                                Редагувати
+                            </button>
+                        {% else %}
+                            <a class="btn btn-muted" href="{% querystring request edit=topic.id modal='' %}">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                </svg>
+                                Редагувати
+                            </a>
+                        {% endif %}
+                        <form method="post" action="{% url 'newsroom:archive_monitoring_topic' topic.id %}">
+                            {% csrf_token %}
+                            <button class="btn btn-muted btn-danger" type="submit">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M4 7h16" />
+                                    <path d="M6 7v12h12V7" />
+                                    <path d="M9 11h6" />
+                                    <path d="M8 4h8l2 3H6z" />
+                                </svg>
+                                В архів
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </article>
+        {% empty %}
+            <div class="empty-state">Теми моніторингу поки що не створені.</div>
+        {% endfor %}
+    </div>
+</section>
+
+{% if has_running_topics %}
+<script>
+    setTimeout(function () {
+        window.location.reload();
+    }, 8000);
+</script>
+{% endif %}
+
+{% if show_topic_modal %}
+    <div class="modal-backdrop">
+        <div class="modal-card monitoring-modal" role="dialog" aria-modal="true" aria-labelledby="monitoring-modal-title">
+            <div class="panel-header">
+                <h2 id="monitoring-modal-title">{% if edit_topic %}Редагувати тему{% else %}Нова тема моніторингу{% endif %}</h2>
+                <a href="{% url 'newsroom:monitoring' %}" class="modal-close modal-close-icon" aria-label="Закрити">
+                    <svg class="modal-close-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                </a>
+            </div>
+            <form method="post" action="{% url 'newsroom:save_monitoring_topic' %}" class="form-stack monitoring-form-stack">
+                {% csrf_token %}
+                {% if edit_topic %}
+                    <input type="hidden" name="topic_id" value="{{ edit_topic.id }}">
+                {% endif %}
+                {{ monitoring_form.non_field_errors }}
+
+                <div class="form-field">
+                    <label for="{{ monitoring_form.topic.id_for_label }}">{{ monitoring_form.topic.label }}</label>
+                    {{ monitoring_form.topic }}
+                    {{ monitoring_form.topic.errors }}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ monitoring_form.keywords.id_for_label }}">{{ monitoring_form.keywords.label }}</label>
+                    {{ monitoring_form.keywords }}
+                    {{ monitoring_form.keywords.errors }}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ monitoring_form.time_window.id_for_label }}">{{ monitoring_form.time_window.label }}</label>
+                    {{ monitoring_form.time_window }}
+                    {{ monitoring_form.time_window.errors }}
+                </div>
+
+                <div class="time-filter-grid">
+                    <div
+                        class="form-field time-filter-field {% if selected_time_window != 'date' %}time-filter-field-hidden{% endif %}"
+                        data-time-window-mode="date"
+                        {% if selected_time_window != 'date' %}hidden{% endif %}
+                    >
+                        <label for="{{ monitoring_form.exact_date.id_for_label }}">{{ monitoring_form.exact_date.label }}</label>
+                        {{ monitoring_form.exact_date }}
+                        {{ monitoring_form.exact_date.errors }}
+                    </div>
+
+                    <div
+                        class="form-field time-filter-field {% if selected_time_window != 'range' %}time-filter-field-hidden{% endif %}"
+                        data-time-window-mode="range"
+                        {% if selected_time_window != 'range' %}hidden{% endif %}
+                    >
+                        <label for="{{ monitoring_form.date_from.id_for_label }}">{{ monitoring_form.date_from.label }}</label>
+                        {{ monitoring_form.date_from }}
+                        {{ monitoring_form.date_from.errors }}
+                    </div>
+
+                    <div
+                        class="form-field time-filter-field {% if selected_time_window != 'range' %}time-filter-field-hidden{% endif %}"
+                        data-time-window-mode="range"
+                        {% if selected_time_window != 'range' %}hidden{% endif %}
+                    >
+                        <label for="{{ monitoring_form.date_to.id_for_label }}">{{ monitoring_form.date_to.label }}</label>
+                        {{ monitoring_form.date_to }}
+                        {{ monitoring_form.date_to.errors }}
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label>{{ monitoring_form.sources.label }}</label>
+                    {% if monitoring_form.source_picker_options %}
+                        <div class="source-picker" role="group" aria-label="{{ monitoring_form.sources.label }}">
+                            {% for source in monitoring_form.source_picker_options %}
+                                <label class="source-option {% if source.is_selected %}selected{% endif %}" data-tooltip="{{ source.name }}">
+                                    <input
+                                        class="source-option-input"
+                                        type="checkbox"
+                                        name="sources"
+                                        value="{{ source.id }}"
+                                        {% if source.is_selected %}checked{% endif %}
+                                    >
+                                    <span class="source-option-body">
+                                        <span class="source-option-header">
+                                            <span class="source-option-title">{{ source.name }}</span>
+                                            <span class="chip source-option-chip">{{ source.type_label }}</span>
+                                        </span>
+                                        <span class="source-option-url">{{ source.display_url }}</span>
+                                        {% if source.status != "active" %}
+                                            <span class="source-option-note">{{ source.status_label }}</span>
+                                        {% endif %}
+                                    </span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                        <p class="field-help">Якщо нічого не обрати, система використає всі активні джерела.</p>
+                    {% else %}
+                        <div class="empty-inline">Спочатку додайте хоча б одне джерело на сторінці «Джерела».</div>
+                    {% endif %}
+                    {{ monitoring_form.sources.errors }}
+                </div>
+
+                <div class="form-field">
+                    <label>{{ monitoring_form.status.label }}</label>
+                    <div class="status-toggle" role="radiogroup" aria-label="{{ monitoring_form.status.label }}">
+                        {% for value, label in monitoring_form.fields.status.choices %}
+                            <label class="status-toggle-option" data-status="{{ value }}">
+                                <input
+                                    class="status-toggle-input"
+                                    type="radio"
+                                    name="status"
+                                    value="{{ value }}"
+                                    {% if selected_status == value %}checked{% endif %}
+                                >
+                                <span class="status-toggle-pill">{{ label }}</span>
+                            </label>
+                    {% endfor %}
+                </div>
+                    {{ monitoring_form.status.errors }}
+                </div>
+
+                <div class="form-actions">
+                    <a class="btn btn-muted" href="{% url 'newsroom:monitoring' %}">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M6 6l12 12M18 6L6 18" />
+                        </svg>
+                        Скасувати
+                    </a>
+                    <button class="btn btn-primary" type="submit">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 12l4 4L19 6" />
+                        </svg>
+                        Зберегти
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<script>
+    (function () {
+        const timeWindowSelect = document.getElementById("{{ monitoring_form.time_window.id_for_label }}");
+        const dateFields = document.querySelectorAll("[data-time-window-mode]");
+        const hiddenClass = "time-filter-field-hidden";
+        const sourceOptions = document.querySelectorAll(".source-option");
+        const singleSelects = document.querySelectorAll(".monitoring-modal .form-select:not([multiple])");
+
+        const closeCustomSelects = (except = null) => {
+            document.querySelectorAll(".custom-select.open").forEach((wrapper) => {
+                if (wrapper === except) {
+                    return;
+                }
+                wrapper.classList.remove("open");
+                const trigger = wrapper.querySelector(".custom-select-trigger");
+                const menu = wrapper.querySelector(".custom-select-menu");
+                if (trigger) {
+                    trigger.setAttribute("aria-expanded", "false");
+                }
+                if (menu) {
+                    menu.hidden = true;
+                }
+            });
+        };
+
+        const initCustomSelect = (select) => {
+            // Власний dropdown залишає нативний select у формі,
+            // але візуально замінює його темним списком у стилі застосунку.
+            if (!select || select.dataset.customSelectReady === "true") {
+                return;
+            }
+
+            select.dataset.customSelectReady = "true";
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "custom-select";
+            select.parentNode.insertBefore(wrapper, select);
+            wrapper.appendChild(select);
+            select.classList.add("custom-select-native");
+
+            const trigger = document.createElement("button");
+            trigger.type = "button";
+            trigger.className = "custom-select-trigger";
+            trigger.setAttribute("aria-haspopup", "listbox");
+            trigger.setAttribute("aria-expanded", "false");
+
+            const value = document.createElement("span");
+            value.className = "custom-select-value";
+            trigger.appendChild(value);
+
+            const arrow = document.createElement("span");
+            arrow.className = "custom-select-arrow";
+            arrow.setAttribute("aria-hidden", "true");
+            trigger.appendChild(arrow);
+
+            const menu = document.createElement("div");
+            menu.className = "custom-select-menu";
+            menu.hidden = true;
+
+            wrapper.appendChild(trigger);
+            wrapper.appendChild(menu);
+
+            const syncFromSelect = () => {
+                const activeOption = select.options[select.selectedIndex];
+                value.textContent = activeOption ? activeOption.textContent : "Оберіть значення";
+                menu.innerHTML = "";
+
+                Array.from(select.options).forEach((option) => {
+                    const optionButton = document.createElement("button");
+                    optionButton.type = "button";
+                    optionButton.className = "custom-select-option";
+                    optionButton.textContent = option.textContent;
+
+                    if (option.selected) {
+                        optionButton.classList.add("selected");
+                    }
+
+                    if (option.disabled) {
+                        optionButton.disabled = true;
+                    }
+
+                    optionButton.addEventListener("click", () => {
+                        select.value = option.value;
+                        select.dispatchEvent(new Event("change", { bubbles: true }));
+                        closeCustomSelects();
+                    });
+
+                    menu.appendChild(optionButton);
+                });
+            };
+
+            trigger.addEventListener("click", () => {
+                const willOpen = !wrapper.classList.contains("open");
+                closeCustomSelects(wrapper);
+                wrapper.classList.toggle("open", willOpen);
+                menu.hidden = !willOpen;
+                trigger.setAttribute("aria-expanded", String(willOpen));
+            });
+
+            select.addEventListener("change", syncFromSelect);
+
+            const label = document.querySelector(`label[for="${select.id}"]`);
+            if (label) {
+                label.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    trigger.click();
+                });
+            }
+
+            syncFromSelect();
+        };
+
+        const toggleDateFields = () => {
+            if (!timeWindowSelect) {
+                return;
+            }
+            const selectedMode = timeWindowSelect.value;
+            dateFields.forEach((field) => {
+                const isHidden = field.dataset.timeWindowMode !== selectedMode;
+                field.hidden = isHidden;
+                field.classList.toggle(hiddenClass, isHidden);
+            });
+        };
+
+        toggleDateFields();
+        if (timeWindowSelect) {
+            timeWindowSelect.addEventListener("change", toggleDateFields);
+        }
+
+        const tooltip = document.createElement("div");
+        tooltip.className = "floating-tooltip";
+        tooltip.hidden = true;
+        document.body.appendChild(tooltip);
+
+        const moveTooltip = (event) => {
+            const offset = 14;
+            const tooltipWidth = tooltip.offsetWidth || 0;
+            const tooltipHeight = tooltip.offsetHeight || 0;
+            let left = event.clientX + offset;
+            let top = event.clientY + offset;
+
+            if (left + tooltipWidth > window.innerWidth - 8) {
+                left = event.clientX - tooltipWidth - offset;
+            }
+            if (top + tooltipHeight > window.innerHeight - 8) {
+                top = event.clientY - tooltipHeight - offset;
+            }
+
+            tooltip.style.left = `${Math.max(8, left)}px`;
+            tooltip.style.top = `${Math.max(8, top)}px`;
+        };
+
+        sourceOptions.forEach((option) => {
+            const input = option.querySelector(".source-option-input");
+            const title = option.querySelector(".source-option-title");
+            if (!input) {
+                return;
+            }
+
+            const syncOptionState = () => {
+                option.classList.toggle("selected", input.checked);
+            };
+
+            syncOptionState();
+            input.addEventListener("change", syncOptionState);
+
+            option.addEventListener("mouseenter", (event) => {
+                if (!title || title.scrollWidth <= title.clientWidth) {
+                    return;
+                }
+                tooltip.textContent = option.dataset.tooltip || "";
+                tooltip.hidden = false;
+                tooltip.classList.add("visible");
+                moveTooltip(event);
+            });
+
+            option.addEventListener("mousemove", (event) => {
+                if (!tooltip.hidden) {
+                    moveTooltip(event);
+                }
+            });
+
+            option.addEventListener("mouseleave", () => {
+                tooltip.classList.remove("visible");
+                tooltip.hidden = true;
+            });
+        });
+
+        singleSelects.forEach(initCustomSelect);
+
+        document.addEventListener("click", (event) => {
+            if (!event.target.closest(".custom-select")) {
+                closeCustomSelects();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                closeCustomSelects();
+            }
+        });
+    })();
+</script>
+{% include "newsroom/includes/delete_confirm_modal.html" %}
+{% endblock %}
+

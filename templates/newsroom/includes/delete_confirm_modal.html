@@ -1,0 +1,96 @@
+<div class="modal-backdrop confirm-delete-backdrop" data-confirm-delete-modal hidden>
+    <div class="modal-card confirm-delete-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-delete-title">
+        <div class="panel-header">
+            <div>
+                <h2 id="confirm-delete-title" data-confirm-delete-title>Видалити?</h2>
+            </div>
+            <button class="modal-close modal-close-icon confirm-delete-close" type="button" data-confirm-delete-cancel aria-label="Закрити">
+                <svg class="modal-close-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="confirm-delete-body">
+            <p data-confirm-delete-body>Ви впевнені, що хочете видалити?</p>
+        </div>
+
+        <form
+            class="confirm-delete-actions"
+            method="post"
+            data-confirm-delete-form
+        >
+            {% csrf_token %}
+            {% with delete_next_target=delete_confirm_next|default:request.get_full_path %}
+            {% if delete_next_target %}
+                <input type="hidden" name="next" value="{{ delete_next_target }}">
+            {% endif %}
+            {% endwith %}
+            <button class="btn btn-muted" type="button" data-confirm-delete-cancel>
+                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+                Скасувати
+            </button>
+            <button class="btn btn-icon danger confirm-delete-submit" type="submit">
+                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                    <path d="M10 11v5" />
+                    <path d="M14 11v5" />
+                </svg>
+                Видалити
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    (() => {
+        const modal = document.querySelector("[data-confirm-delete-modal]");
+        if (!modal) {
+            return;
+        }
+
+        const form = modal.querySelector("[data-confirm-delete-form]");
+        const title = modal.querySelector("[data-confirm-delete-title]");
+        const body = modal.querySelector("[data-confirm-delete-body]");
+        const cancelButtons = modal.querySelectorAll("[data-confirm-delete-cancel]");
+        const deleteButtons = document.querySelectorAll("[data-delete-confirm-button]");
+        const defaultTexts = {
+            title: title.textContent,
+            body: body.textContent,
+        };
+
+        const closeModal = () => {
+            modal.hidden = true;
+            form.removeAttribute("action");
+        };
+
+        deleteButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                form.action = button.dataset.deleteUrl;
+                title.textContent = button.dataset.deleteTitle || defaultTexts.title;
+                body.textContent = button.dataset.deleteBody || defaultTexts.body;
+                modal.hidden = false;
+            });
+        });
+
+        cancelButtons.forEach((button) => {
+            button.addEventListener("click", closeModal);
+        });
+
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !modal.hidden) {
+                closeModal();
+            }
+        });
+    })();
+</script>

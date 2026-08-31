@@ -1,0 +1,179 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section draft-generation-page">
+    <div class="page-header">
+        <div>
+            <h1>Генерація контенту</h1>
+            <p>Оберіть новину, шаблон і параметри генерації. Нижче можна одразу переглянути готовий матеріал та перейти до його редагування.</p>
+            <div class="generation-helper-links">
+                <a href="{% url 'newsroom:content_templates' %}">
+                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 5h16v14H4V5Z" />
+                        <path d="M4 10h16" />
+                        <path d="M9 10v9" />
+                    </svg>
+                    Керувати шаблонами
+                </a>
+                <a href="{% url 'newsroom:generated_materials' %}">
+                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 3h7l4 4v14H7V3Z" />
+                        <path d="M14 3v5h5" />
+                        <path d="M9 16l2 2 4-5" />
+                    </svg>
+                    Згенеровані матеріали
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-generation-grid">
+        <div class="generation-column">
+            <article class="panel-card generation-panel" data-generation-panel>
+                <div class="panel-header">
+                    <h2>Нова генерація</h2>
+                </div>
+                <form method="post" class="form-stack generation-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="form_type" value="generate_content">
+                    {% if not has_content_templates %}
+                        <p class="field-help">Спочатку створіть хоча б один активний шаблон контенту в розділі «Керувати шаблонами».</p>
+                    {% endif %}
+                    {% for field in generation_form %}
+                        <div class="form-field">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                    <div class="form-actions">
+                        <button class="btn btn-primary generation-submit-button" type="submit" {% if not has_content_templates %}disabled{% endif %}>
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 20l4-1 10-10-3-3L5 16l-1 4Z" />
+                                <path d="M14 6l3 3" />
+                                <path d="M19 4l1 1" />
+                                <path d="M20 11l1 1" />
+                                <path d="M11 3l1 1" />
+                            </svg>
+                            Згенерувати контент
+                        </button>
+                    </div>
+                </form>
+            </article>
+
+        </div>
+
+        <article class="editor-main-card generated-preview-card" data-generated-preview-card>
+            <div class="editor-toolbar generated-preview-toolbar">
+                <div class="generated-preview-title">
+                    <div class="section-eyebrow">Перегляд результату</div>
+                </div>
+                {% if selected_draft %}
+                    <div class="editor-toolbar-actions generated-preview-actions">
+                        <a class="btn btn-primary generated-action-button" href="{% url 'newsroom:draft_detail' selected_draft.id %}">
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                            Редагувати
+                        </a>
+                        <button
+                            class="btn btn-muted btn-danger generated-action-button generated-action-delete generated-danger-action"
+                            type="button"
+                            aria-label="Видалити"
+                            data-delete-confirm-button
+                            data-delete-url="{% url 'newsroom:delete_draft' selected_draft.id %}"
+                            data-delete-title="Видалити матеріал?"
+                            data-delete-body="Згенерований матеріал «{{ selected_draft.title }}» буде видалено зі списку генерацій."
+                        >
+                            <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v5" />
+                                <path d="M14 11v5" />
+                            </svg>
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="editor-content generated-preview-body">
+                {% if selected_draft %}
+                    <div class="generated-preview-frame">
+                        <div class="chip-row generated-preview-meta-row">
+                            {% if selected_draft.content_template %}
+                                <span class="chip">{{ selected_draft.content_template.name }}</span>
+                            {% endif %}
+                            {% if selected_draft.target_length %}
+                                <span class="chip">
+                                    {% if selected_draft.target_length == "short" %}Коротка{% elif selected_draft.target_length == "long" %}Довга{% else %}Середня{% endif %}
+                                </span>
+                            {% endif %}
+                            <span class="chip">{{ selected_draft.word_count }} слів</span>
+                        </div>
+                        <article class="editor-preview generated-preview">
+                            <h1>{{ selected_draft.title }}</h1>
+                            <div class="editor-text generated-result-content is-collapsed" data-generated-result-content>{{ selected_draft.content|linebreaks }}</div>
+                            <div class="generated-preview-spacer" aria-hidden="true"></div>
+                            <button class="btn btn-muted generated-expand-button" type="button" data-generated-expand>Показати більше</button>
+                        </article>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        Поки що немає згенерованих матеріалів. Оберіть новину з моніторингу та створіть перший варіант контенту.
+                    </div>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+</section>
+
+{% include "newsroom/includes/delete_confirm_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (() => {
+        const generationPanel = document.querySelector("[data-generation-panel]");
+        const previewCard = document.querySelector("[data-generated-preview-card]");
+        const content = document.querySelector("[data-generated-result-content]");
+        const button = document.querySelector("[data-generated-expand]");
+        if (!generationPanel || !previewCard || !content || !button) {
+            return;
+        }
+
+        let isExpanded = false;
+
+        const syncPreviewLayout = () => {
+            if (isExpanded) {
+                previewCard.style.removeProperty("height");
+                previewCard.dataset.previewCollapsed = "false";
+                content.classList.remove("is-collapsed");
+                button.hidden = true;
+                return;
+            }
+
+            previewCard.dataset.previewCollapsed = "true";
+            previewCard.style.height = `${generationPanel.getBoundingClientRect().height}px`;
+            content.classList.add("is-collapsed");
+            button.hidden = false;
+
+            requestAnimationFrame(() => {
+                const isOverflowing = content.scrollHeight > content.clientHeight + 4;
+                button.hidden = !isOverflowing;
+            });
+        };
+
+        button.addEventListener("click", () => {
+            isExpanded = true;
+            syncPreviewLayout();
+        });
+
+        window.addEventListener("resize", syncPreviewLayout);
+        syncPreviewLayout();
+    })();
+</script>
+{% endblock %}

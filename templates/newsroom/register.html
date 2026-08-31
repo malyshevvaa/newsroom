@@ -1,0 +1,34 @@
+{% extends "newsroom/base.html" %}
+
+{% block content %}
+<section class="page-section auth-page">
+    <article class="panel-card auth-card">
+        <div class="page-header auth-header">
+            <div>
+                <h1>Реєстрація</h1>
+            </div>
+        </div>
+
+        <form method="post" class="form-stack auth-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next_url }}">
+            {{ auth_form.non_field_errors }}
+            {% for field in auth_form %}
+                <div class="form-field">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {{ field.errors }}
+                </div>
+            {% endfor %}
+            <div class="form-actions auth-actions">
+                <button class="btn btn-primary auth-submit" type="submit">Створити акаунт</button>
+            </div>
+        </form>
+
+        <p class="auth-note">
+            Уже є акаунт?
+            <a href="{% url 'newsroom:login' %}{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">Увійти</a>
+        </p>
+    </article>
+</section>
+{% endblock %}

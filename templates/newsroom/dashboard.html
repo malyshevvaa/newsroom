@@ -1,0 +1,100 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section">
+    <div class="page-header">
+        <div>
+            <h1>Панель керування</h1>
+            <p>Огляд тем моніторингу, джерел, новин, кластерів і згенерованого контенту в одному інтерфейсі.</p>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <article class="stat-card">
+            <span class="stat-label">Теми моніторингу</span>
+            <strong class="stat-value">{{ summary.total_topics }}</strong>
+            <span class="stat-note">{{ summary.active_topics }} активних</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Джерела</span>
+            <strong class="stat-value">{{ summary.total_sources }}</strong>
+            <span class="stat-note">{{ summary.active_sources }} активних</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Новини за 24 години</span>
+            <strong class="stat-value">{{ summary.articles_last_24h }}</strong>
+            <span class="stat-note">Усього: {{ summary.total_articles }}</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Кластери</span>
+            <strong class="stat-value">{{ summary.total_clusters }}</strong>
+            <span class="stat-note">Тематичні групи новин</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Згенеровані матеріали</span>
+            <strong class="stat-value">{{ summary.total_drafts }}</strong>
+            <span class="stat-note">Усього в акаунті</span>
+        </article>
+        <article class="stat-card">
+            <span class="stat-label">Згенеровано за добу</span>
+            <strong class="stat-value accent-amber">{{ summary.generated_today }}</strong>
+            <span class="stat-note">Нові матеріали за останні 24 години</span>
+        </article>
+    </div>
+
+    <div class="two-column-grid">
+        <article class="panel-card">
+            <div class="panel-header">
+                <h2>Актуальні теми моніторингу</h2>
+                <a href="{% url 'newsroom:monitoring' %}">Усі теми</a>
+            </div>
+            <div class="list-stack dashboard-topic-list">
+                {% for topic in monitoring_topics %}
+                    <a class="list-row dashboard-topic-row" href="{% url 'newsroom:articles' %}?topic={{ topic.id }}">
+                        <div class="dashboard-topic-main">
+                            <div class="list-title">{{ topic.topic }}</div>
+                            <div class="chip-row">
+                                <span class="status-badge {{ topic.status|status_class }}">{{ topic.status|status_label }}</span>
+                                <span class="chip">{{ topic.time_filter_label }}</span>
+                                <span class="chip">{{ topic.current_articles_count }} матеріалів</span>
+                            </div>
+                        </div>
+                        <div class="row-meta">
+                            <strong>
+                                {% if topic.last_run_at %}{{ topic.last_run_at|relative_time }}{% else %}ще не запускалась{% endif %}
+                            </strong>
+                            {% if topic.last_run_at %}
+                                <span>останній запуск</span>
+                            {% endif %}
+                        </div>
+                    </a>
+                {% empty %}
+                    <div class="empty-state">Теми моніторингу поки що відсутні.</div>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-header">
+                <h2>Остання активність</h2>
+            </div>
+            <div class="list-stack">
+                {% for event in activity_events %}
+                    <div class="activity-row">
+                        <div class="activity-dot"></div>
+                        <div class="activity-content">
+                            <div class="activity-title">{{ event.description }}</div>
+                            <div class="activity-meta">
+                                {{ event.created_at|relative_time }}
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="empty-state">Подій активності поки що немає.</div>
+                {% endfor %}
+            </div>
+        </article>
+    </div>
+</section>
+{% endblock %}

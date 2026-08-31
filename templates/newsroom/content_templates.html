@@ -1,0 +1,472 @@
+﻿{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section content-templates-page">
+    <div class="page-header">
+        <div>
+            <h1>Шаблони контенту</h1>
+            <p>Керуйте інструкціями, за якими ШІ створює матеріали для різних форматів публікацій.</p>
+        </div>
+        <a class="btn btn-primary" href="{% querystring request modal='template' edit='' %}">
+            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+            </svg>
+            Створити шаблон
+        </a>
+    </div>
+
+    <div class="content-templates-layout">
+        <div class="content-templates-main">
+            <div class="template-tabs">
+                <a class="template-tab {% if current_scope == 'active' %}active{% endif %}" href="{% querystring request scope='active' page='' %}">
+                    Активні
+                    <span>{{ template_stats.active }}</span>
+                </a>
+                <a class="template-tab {% if current_scope == 'archived' %}active{% endif %}" href="{% querystring request scope='archived' page='' %}">
+                    Архів
+                    <span>{{ template_stats.archived }}</span>
+                </a>
+            </div>
+
+            <form method="get" class="template-toolbar content-template-toolbar">
+                <input type="hidden" name="scope" value="{{ current_scope }}">
+                <div class="template-search-field content-template-search-field">
+                    <label for="template-search">Пошук шаблонів</label>
+                    <input
+                        id="template-search"
+                        class="form-control"
+                        type="search"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Пошук шаблонів..."
+                    >
+                </div>
+                <div class="template-toolbar-actions content-template-toolbar-actions">
+                    <select class="form-select" name="usage" aria-label="Використання шаблону">
+                        {% for value, label in template_usage_filters %}
+                            <option value="{{ value }}" {% if usage_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-muted" type="submit">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 6h16M7 12h10M10 18h4" />
+                        </svg>
+                        Застосувати
+                    </button>
+                </div>
+            </form>
+
+            <div class="content-template-grid">
+                {% for template in page_obj %}
+                    <article class="content-template-card">
+                        <div class="content-template-icon">{{ template.name|slice:":1" }}</div>
+                        <div class="content-template-body">
+                            <div class="content-template-card-header">
+                                <div>
+                                    <h2>{{ template.name }}</h2>
+                                    <div class="chip-row content-template-tags">
+                                        <span class="chip">
+                                            {% if template.is_archived %}Архів{% else %}Активний{% endif %}
+                                        </span>
+                                        <span class="chip">{{ template.examples_count }} прикладів</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="content-template-summary">
+                                {% if template.description %}
+                                    <p class="content-template-description-text">{{ template.description }}</p>
+                                {% else %}
+                                    <p class="content-template-description-text">Опис ще не додано.</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="content-template-footer">
+                                <span>{{ template.usage_count }} використань</span>
+                            </div>
+                        </div>
+
+                        <div class="content-template-actions {% if template.is_archived and template.can_be_deleted %}content-template-actions--archived{% elif template.is_archived %}content-template-actions--archived-locked{% else %}content-template-actions--active{% endif %}">
+                            {% if template.is_archived %}
+                                <form method="post" action="{% url 'newsroom:restore_content_template' template.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="btn btn-primary" type="submit">
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M3 12a9 9 0 1 0 3-6.7" />
+                                            <path d="M3 4v5h5" />
+                                        </svg>
+                                        Відновити
+                                    </button>
+                                </form>
+                            {% else %}
+                                <a class="btn btn-primary" href="{% url 'newsroom:drafts' %}?template={{ template.id }}">
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M15 4l5 5" />
+                                        <path d="M14 5l-9 9-1 5 5-1 9-9" />
+                                        <path d="M5 4v3M3.5 5.5h3M19 16v3M17.5 17.5h3" />
+                                    </svg>
+                                    Генерувати
+                                </a>
+                            {% endif %}
+                            <a class="btn btn-muted" href="{% querystring request edit=template.id modal='template' %}">
+                                <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                </svg>
+                                Редагувати
+                            </a>
+                            {% if template.is_archived %}
+                                {% if template.can_be_deleted %}
+                                    <button
+                                        class="btn btn-muted btn-danger content-template-delete-button"
+                                        type="button"
+                                        aria-label="Видалити шаблон"
+                                        title="Видалити шаблон"
+                                        data-delete-confirm-button
+                                        data-delete-url="{% url 'newsroom:delete_content_template' template.id %}"
+                                        data-delete-title="Видалити шаблон?"
+                                        data-delete-body="Шаблон «{{ template.name }}» буде остаточно видалено."
+                                    >
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M3 6h18" />
+                                            <path d="M8 6V4h8v2" />
+                                            <path d="M19 6l-1 14H6L5 6" />
+                                            <path d="M10 11v5" />
+                                            <path d="M14 11v5" />
+                                        </svg>
+                                    </button>
+                                {% endif %}
+                            {% else %}
+                                <form method="post" action="{% url 'newsroom:archive_content_template' template.id %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button class="btn btn-muted btn-danger" type="submit">
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M3 7h18" />
+                                            <path d="M5 7l1 12h12l1-12" />
+                                            <path d="M9 11h6" />
+                                            <path d="M10 4h4" />
+                                        </svg>
+                                        В архів
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% empty %}
+                    <div class="empty-state content-template-empty">
+                        Шаблони за цими фільтрами не знайдені.
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% include "newsroom/includes/pagination.html" %}
+        </div>
+
+        <aside class="template-guide">
+            <div class="template-guide-header">
+                <span>Підказки</span>
+                <h2>Як покращити результат генерації</h2>
+            </div>
+
+            <div class="template-feature-list">
+                <div class="template-feature-card">
+                    <span class="template-feature-icon">І</span>
+                    <div>
+                        <strong>Чіткі інструкції</strong>
+                        <p>Конкретний опис формату та стилю допомагає ШІ створювати стабільніший результат.</p>
+                    </div>
+                </div>
+                <div class="template-feature-card">
+                    <span class="template-feature-icon">П</span>
+                    <div>
+                        <strong>Приклади текстів</strong>
+                        <p>Приклади допомагають повторювати структуру, стиль і спосіб подачі матеріалу.</p>
+                    </div>
+                </div>
+                <div class="template-feature-card">
+                    <span class="template-feature-icon">Р</span>
+                    <div>
+                        <strong>Редагування шаблону</strong>
+                        <p>Змінюйте інструкції та приклади, якщо результат генерації не відповідає очікуванням.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</section>
+
+{% if show_template_modal %}
+    <div class="modal-backdrop">
+        <div class="modal-card content-template-modal" role="dialog" aria-modal="true" aria-labelledby="content-template-modal-title">
+            <div class="panel-header">
+                <h2 id="content-template-modal-title">{% if edit_template %}Редагувати шаблон{% else %}Новий шаблон{% endif %}</h2>
+                <a href="{% url 'newsroom:content_templates' %}" class="modal-close modal-close-icon" aria-label="Закрити">
+                    <svg class="modal-close-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                </a>
+            </div>
+            <form method="post" class="form-stack content-template-form">
+                {% csrf_token %}
+                {% if edit_template %}
+                    <input type="hidden" name="template_id" value="{{ edit_template.id }}">
+                {% endif %}
+                {{ template_form.non_field_errors }}
+                {% for field in template_form %}
+                    <div class="form-field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+                        {{ field.errors }}
+                    </div>
+                {% endfor %}
+
+                <div class="template-examples-editor" data-template-examples-editor>
+                    <div class="template-examples-header">
+                        <div>
+                            <h3>Приклади текстів</h3>
+                            <p>Додайте готові тексти, щоб ШІ краще повторював потрібний стиль, структуру й тон матеріалу.</p>
+                        </div>
+                        <button class="btn btn-muted template-add-example-button" type="button" data-add-template-example>
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 5v14M5 12h14" />
+                            </svg>
+                            Додати приклад
+                        </button>
+                    </div>
+
+                    <div class="template-example-list" data-template-examples-list>
+                        {% for example in template_examples %}
+                            <div class="template-example-item" data-template-example-item>
+                                <textarea name="example_text" hidden data-example-text-input>{{ example }}</textarea>
+                                <div class="template-example-item-header">
+                                    <div class="template-example-main">
+                                        <strong data-example-number>Приклад {{ forloop.counter }}</strong>
+                                    </div>
+                                    <div class="template-example-actions">
+                                        <button class="btn btn-muted" type="button" data-edit-template-example>
+                                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M12 20h9" />
+                                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                            </svg>
+                                            Редагувати
+                                        </button>
+                                        <button class="btn btn-muted btn-danger" type="button" data-remove-template-example>
+                                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M3 6h18" />
+                                                <path d="M8 6V4h8v2" />
+                                                <path d="M19 6l-1 14H6L5 6" />
+                                                <path d="M10 11v5" />
+                                                <path d="M14 11v5" />
+                                            </svg>
+                                            Прибрати
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="template-example-preview" data-example-preview>{{ example|truncatechars:220 }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <p class="template-example-empty" data-template-example-empty {% if template_examples %}hidden{% endif %}>Приклади ще не додані.</p>
+                    <p class="field-help">Приклади не використовуються як джерело фактів. Вони потрібні тільки для стилю, структури й подачі.</p>
+
+                    <div class="template-example-dialog" data-template-example-dialog hidden>
+                        <div class="template-example-dialog-card" role="dialog" aria-modal="true" aria-labelledby="template-example-dialog-title">
+                            <div class="template-example-dialog-header">
+                                <h3 id="template-example-dialog-title" data-template-example-dialog-title>Додати приклад</h3>
+                                <button class="modal-close modal-close-icon template-example-dialog-close" type="button" data-close-template-example-dialog aria-label="Закрити">
+                                    <svg class="modal-close-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M6 6l12 12M18 6L6 18" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="template-example-dialog-body">
+                                <div class="form-field">
+                                    <label for="template-example-text-field">Текст прикладу</label>
+                                    <textarea class="form-textarea" id="template-example-text-field" rows="6" data-example-text-field placeholder="Вставте готовий текст прикладу"></textarea>
+                                </div>
+                            </div>
+                            <div class="template-example-dialog-actions">
+                                <button class="btn btn-muted content-template-cancel" type="button" data-close-template-example-dialog>
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M6 6l12 12M18 6L6 18" />
+                                    </svg>
+                                    Скасувати
+                                </button>
+                                <button class="btn btn-primary" type="button" data-save-template-example>
+                                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20 6L9 17l-5-5" />
+                                    </svg>
+                                    Зберегти
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <template data-template-example-template>
+                        <div class="template-example-item" data-template-example-item>
+                            <textarea name="example_text" hidden data-example-text-input></textarea>
+                            <div class="template-example-item-header">
+                                <div class="template-example-main">
+                                    <strong data-example-number>Приклад</strong>
+                                </div>
+                                <div class="template-example-actions">
+                                    <button class="btn btn-muted" type="button" data-edit-template-example>
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M12 20h9" />
+                                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                        </svg>
+                                        Редагувати
+                                    </button>
+                                    <button class="btn btn-muted btn-danger" type="button" data-remove-template-example>
+                                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M3 6h18" />
+                                            <path d="M8 6V4h8v2" />
+                                            <path d="M19 6l-1 14H6L5 6" />
+                                            <path d="M10 11v5" />
+                                            <path d="M14 11v5" />
+                                        </svg>
+                                        Прибрати
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="template-example-preview" data-example-preview></p>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="form-actions content-template-modal-actions">
+                    <a class="btn btn-muted content-template-cancel" href="{% url 'newsroom:content_templates' %}">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M18 6L6 18" />
+                            <path d="M6 6l12 12" />
+                        </svg>
+                        Скасувати
+                    </a>
+                    <button class="btn btn-primary content-template-save" type="submit">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                        Зберегти
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<script>
+    (() => {
+        const editor = document.querySelector("[data-template-examples-editor]");
+        if (!editor) {
+            return;
+        }
+
+        const list = editor.querySelector("[data-template-examples-list]");
+        const template = editor.querySelector("[data-template-example-template]");
+        const addButton = editor.querySelector("[data-add-template-example]");
+        const emptyMessage = editor.querySelector("[data-template-example-empty]");
+        const dialog = editor.querySelector("[data-template-example-dialog]");
+        const dialogTitle = editor.querySelector("[data-template-example-dialog-title]");
+        const textField = editor.querySelector("[data-example-text-field]");
+        const saveButton = editor.querySelector("[data-save-template-example]");
+        let activeItem = null;
+
+        const getItemText = (item) => item.querySelector("[data-example-text-input]")?.value || "";
+
+        const buildPreview = (text) => {
+            const cleanText = text.trim().replace(/\s+/g, " ");
+            if (!cleanText) {
+                return "Текст прикладу ще не додано.";
+            }
+            return cleanText.length > 220 ? `${cleanText.slice(0, 220)}...` : cleanText;
+        };
+
+        const updateItem = (item, text) => {
+            item.querySelector("[data-example-text-input]").value = text.trim();
+            item.querySelector("[data-example-preview]").textContent = buildPreview(text);
+        };
+
+        const refreshNumbers = () => {
+            const items = list.querySelectorAll("[data-template-example-item]");
+            items.forEach((item, index) => {
+                const title = item.querySelector("[data-example-number]");
+                if (title) {
+                    title.textContent = `Приклад ${index + 1}`;
+                }
+            });
+            if (emptyMessage) {
+                emptyMessage.hidden = items.length > 0;
+            }
+        };
+
+        const openDialog = (item = null) => {
+            activeItem = item;
+            dialogTitle.textContent = item ? "Редагувати приклад" : "Додати приклад";
+            textField.value = item ? getItemText(item) : "";
+            dialog.hidden = false;
+            textField.focus();
+        };
+
+        const closeDialog = () => {
+            dialog.hidden = true;
+            activeItem = null;
+            textField.value = "";
+        };
+
+        const createItem = () => {
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = template.innerHTML.trim();
+            return wrapper.firstElementChild;
+        };
+
+        list.addEventListener("click", (event) => {
+            const editButton = event.target.closest("[data-edit-template-example]");
+            if (editButton) {
+                openDialog(editButton.closest("[data-template-example-item]"));
+                return;
+            }
+
+            const removeButton = event.target.closest("[data-remove-template-example]");
+            if (removeButton) {
+                removeButton.closest("[data-template-example-item]").remove();
+                refreshNumbers();
+            }
+        });
+
+        editor.querySelectorAll("[data-close-template-example-dialog]").forEach((button) => {
+            button.addEventListener("click", closeDialog);
+        });
+
+        addButton.addEventListener("click", () => {
+            openDialog();
+        });
+
+        saveButton.addEventListener("click", () => {
+            const text = textField.value.trim();
+            if (!text) {
+                textField.focus();
+                return;
+            }
+
+            const item = activeItem || createItem();
+            updateItem(item, text);
+            if (!activeItem) {
+                list.appendChild(item);
+            }
+            refreshNumbers();
+            closeDialog();
+        });
+
+        list.querySelectorAll("[data-template-example-item]").forEach((item) => {
+            updateItem(item, getItemText(item));
+        });
+        refreshNumbers();
+    })();
+</script>
+{% include "newsroom/includes/delete_confirm_modal.html" %}
+{% endblock %}

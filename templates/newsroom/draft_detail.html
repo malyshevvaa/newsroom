@@ -1,0 +1,114 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="draft-editor-page">
+    <div class="editor-main-card">
+        <div class="editor-toolbar">
+            <a class="back-link" href="{% url 'newsroom:generated_materials' %}?content={{ draft.id }}">← До згенерованих матеріалів</a>
+            <div class="editor-toolbar-actions">
+                <a class="btn btn-muted generated-action-button generated-secondary-action" href="{% url 'newsroom:export_draft_docx' draft.id %}">
+                    <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M7 3h7l4 4v14H7V3Z" />
+                        <path d="M14 3v5h5" />
+                        <path d="M12 11v6" />
+                        <path d="m9 14 3 3 3-3" />
+                    </svg>
+                    DOCX
+                </a>
+                <button
+                    class="btn btn-muted btn-danger generated-action-button generated-action-delete generated-danger-action"
+                    type="button"
+                    aria-label="Видалити"
+                    data-delete-confirm-button
+                    data-delete-url="{% url 'newsroom:delete_draft' draft.id %}"
+                    data-delete-title="Видалити матеріал?"
+                    data-delete-body="Згенерований матеріал «{{ draft.title }}» буде видалено зі списку генерацій."
+                >
+                    <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v5" />
+                        <path d="M14 11v5" />
+                    </svg>
+                </button>
+                <button class="btn btn-primary generated-action-button" type="submit" form="draft-edit-form">
+                    <svg class="generated-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m5 12 4 4L19 6" />
+                    </svg>
+                    Зберегти
+                </button>
+            </div>
+        </div>
+
+        <div class="editor-layout">
+            <div class="editor-content">
+                <form method="post" id="draft-edit-form" class="form-stack">
+                    {% csrf_token %}
+                    <div class="form-field">
+                        <label for="{{ form.title.id_for_label }}">Назва матеріалу</label>
+                        {{ form.title }}
+                        {{ form.title.errors }}
+                    </div>
+                    <div class="form-field">
+                        <label for="{{ form.content.id_for_label }}">Текст матеріалу</label>
+                        {{ form.content }}
+                        {{ form.content.errors }}
+                    </div>
+                </form>
+            </div>
+
+            <aside class="editor-sidebar">
+                <div class="panel-card editor-material-panel">
+                    <div class="panel-header"><h2>Дані матеріалу</h2></div>
+                    <div class="detail-list">
+                        <div>
+                            <span>Джерело</span>
+                            <strong>
+                                {% if draft.source_article and draft.source_article.source %}
+                                    {{ draft.source_article.source.name }}
+                                {% else %}
+                                    Джерело видалено
+                                {% endif %}
+                            </strong>
+                        </div>
+                        {% if draft.content_template %}
+                            <div>
+                                <span>Шаблон</span>
+                                <strong>{{ draft.content_template.name }}</strong>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <span>Довжина</span>
+                            <strong>{{ draft.word_count }} слів</strong>
+                        </div>
+                        {% if draft.generated_at %}
+                            <div>
+                                <span>Створено</span>
+                                <strong>{{ draft.generated_at|date:"d.m.Y" }}</strong>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <span>Оновлено</span>
+                            <strong>{{ draft.updated_at|date:"d.m.Y" }}</strong>
+                        </div>
+                    </div>
+                </div>
+                {% if draft.source_article %}
+                    <a class="btn btn-muted editor-source-action" href="{{ draft.source_article.url }}" target="_blank" rel="noreferrer">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M7 17 17 7" />
+                            <path d="M8 7h9v9" />
+                        </svg>
+                        Відкрити джерело
+                    </a>
+                {% endif %}
+            </aside>
+        </div>
+    </div>
+</section>
+
+{% url 'newsroom:generated_materials' as drafts_url %}
+{% include "newsroom/includes/delete_confirm_modal.html" with delete_confirm_next=drafts_url %}
+{% endblock %}

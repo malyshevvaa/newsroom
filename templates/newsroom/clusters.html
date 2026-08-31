@@ -1,0 +1,77 @@
+{% extends "newsroom/base.html" %}
+{% load newsroom_extras %}
+
+{% block content %}
+<section class="page-section">
+    <div class="page-header">
+        <div>
+            <h1>Кластери</h1>
+            <p>Тематичні групи новин, сформовані на основі знайдених матеріалів у межах тем моніторингу.</p>
+        </div>
+        <div class="header-actions">
+            <form method="post" action="{% url 'newsroom:run_deduplication' %}">
+                {% csrf_token %}
+                {% if current_topic %}<input type="hidden" name="topic" value="{{ current_topic.id }}">{% endif %}
+                <button class="btn btn-primary" type="submit">
+                    <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M8 5v14l11-7Z" />
+                    </svg>
+                    {% if current_topic %}Запустити кластеризацію теми{% else %}Запустити кластеризацію{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="filter-row">
+        <a class="filter-pill {% if not topic_filter %}active{% endif %}" href="{% querystring request topic='' page='' %}">Усі теми</a>
+        {% for topic in topic_filters %}
+            <a class="filter-pill {% if topic_filter == topic.id|stringformat:'s' %}active{% endif %}" href="{% querystring request topic=topic.id page='' %}">
+                {{ topic.topic }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="card-grid">
+        {% for cluster in page_obj %}
+            <article class="cluster-card">
+                <div class="cluster-card-header">
+                    <h3><a class="row-title-link cluster-title-link" href="{% url 'newsroom:cluster_detail' cluster.id %}">{{ cluster.title }}</a></h3>
+                    <p class="row-description cluster-card-summary">{{ cluster.summary|default:"Опис поки що відсутній." }}</p>
+                </div>
+
+                <div class="cluster-card-meta">
+                    <span>{{ cluster.current_article_count }} новин</span>
+                    <span class="cluster-updated-text">оновлено {{ cluster.last_updated_at|relative_time }}</span>
+                </div>
+
+                <div class="cluster-card-actions">
+                    <a class="btn btn-muted" href="{% url 'newsroom:cluster_detail' cluster.id %}">
+                        <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 12h11M13 7l5 5-5 5" />
+                        </svg>
+                        Відкрити
+                    </a>
+                    <form method="post" action="{% url 'newsroom:delete_cluster' cluster.id %}" class="inline-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button class="btn btn-muted btn-danger" type="submit">
+                            <svg class="btn-svg" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v5" />
+                                <path d="M14 11v5" />
+                            </svg>
+                            Видалити
+                        </button>
+                    </form>
+                </div>
+            </article>
+        {% empty %}
+            <div class="empty-state">Кластери ще не створені.</div>
+        {% endfor %}
+    </div>
+
+    {% include "newsroom/includes/pagination.html" %}
+</section>
+{% endblock %}
